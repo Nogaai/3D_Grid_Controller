@@ -1,0 +1,196 @@
+# By the Tutorial Doctor
+# Tue Oct 13 20:23:16 EDT 2015
+extends Camera
+
+var space_state
+var collider_id
+
+var rotating = false
+var moving = false
+var bouncing = false
+
+var rot_dir = 1 # direction of rotation: 1 -- left; -1 -- right
+var current_time = 0
+	
+var initial_angle = 0
+var initial_position
+
+const vector_up = Vector3(0, 1, 0)
+var vector_forward
+
+# tile movement parameters
+export var move_speed = 1.0
+export var move_step = 3.7
+export var move_period = 0.7
+export var move_height = 0.06
+var move_vector
+
+# bounce parameters
+var bounce_step = 0.08
+var bounce_step0 = 0.1
+var bounce_period = 0.4
+var bounce_vector
+
+# rotation parameters
+export var rot_period = 0.3  # time required to finish rotation
+export var rot_speed = 1  # speed of rotation
+
+const ray_len = 3.7
+
+func _ready():
+	set_process(true)
+	set_fixed_process(true)
+	vector_forward = calc_vector_forward()
+	# Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+
+func _fixed_process(delta):
+	# update the space_state variable
+	space_state = get_world().get_direct_space_state()
+	
+
+func _process(delta):	
+	
+	if Input.is_action_pressed("ui_step_forward"):		
+		try_moving(vector_forward)			
+			
+	if Input.is_action_pressed("ui_step_back"):
+		try_moving(-vector_forward)
+		
+	if Input.is_action_pressed("ui_step_right"):
+		try_moving(vector_forward.cross(vector_up))
+
+	if Input.is_action_pressed("ui_step_left"):
+		try_moving(-vector_forward.cross(vector_up))
+					
+	if Input.is_action_pressed("ui_rotate_left"):
+		rot_dir = 1
+		try_rotating()
+
+	if Input.is_action_pressed("ui_rotate_right"):
+		rot_dir = -1
+		try_rotating()
+				
+	if rotating:
+		rotate(delta)
+		
+	if moving:
+		move(delta)	
+			
+	if bouncing:
+		bounce(delta)
+
+
+func try_moving(direction):
+	if can_move(direction):
+			move_vector = direction
+			moving = true
+			current_time = 0
+			initial_position = get_translation()
+			get_node("SamplePlayer").play("step")
+	elif can_bounce():
+			bounce_vector = direction
+			bouncing = true
+			current_time = 0
+			initial_position = get_translation()
+
+func try_rotating():
+	if can_rotate():
+			rotating = true			
+			current_time = 0
+			initial_angle = get_rotation_deg()[1]			
+
+func rotate(delta):
+	var new_angle
+	var final_angle
+	current_time += delta
+	if current_time >= rot_period:
+		current_time = rot_period
+		rotating = false
+		vector_forward = calc_vector_forward()
+	new_angle = calc_rot_angle_deg(current_time)	
+	final_angle = initial_angle + rot_dir*new_angle
+	final_angle = fmod(final_angle, 360)	
+	set_rotation_deg(Vector3(0, final_angle, 0))
+	
+func move(delta):
+	var d
+	var h
+	current_time += delta
+	if current_time >= move_period:
+		current_time = move_period
+		moving = false
+	d = calc_horiz_pos(current_time)
+	h = calc_vert_pos(current_time)		
+	set_translation(initial_position + d*move_vector + Vector3(0, h, 0))	
+
+func bounce(delta):
+	var d
+	current_time += delta
+	if current_time >= bounce_period:
+		current_time = bounce_period
+		bouncing = false
+	d = calc_horiz_bounce(current_time)	
+	set_translation(initial_position + d*bounce_vector)
+				
+				
+func can_rotate():
+	return (not rotating and not moving)
+	
+func can_move(direction):
+	var no_obstacle = (get_obstacle_id(direction) == -1)
+	return (not rotating) and (not moving) and no_obstacle and (not bouncing)
+	
+func can_bounce():
+	return (not rotating) and (not moving) and (not bouncing)		
+	
+func rot_to_dir(angle):
+	if abs(angle) == 0:
+		return Vector3(0, 0, -1)
+	if angle == 90 or angle == -270:
+		return Vector3(-1, 0, 0)
+	if abs(angle) == 180:
+		return Vector3(0, 0, 1)
+	if angle == -90 or angle == 270:
+		return Vector3(1, 0, 0)
+		
+func calc_rot_angle_deg(t):
+	var angle
+	var x	
+	x = sin(PI/2*t/rot_period)
+	angle = rot_speed*t + (PI/2-rot_speed*rot_period)*x*x
+	return rad2deg(angle)
+	
+func calc_horiz_pos(t):
+	var x
+	var y
+	
+	y = sin(PI/2*t/move_period)
+	x = move_speed*t + (move_step-move_speed*move_period)*y*y
+	return x	
+	
+func calc_horiz_bounce(t):
+	var x		
+	var y
+	# bell-like curve for bounce for better "jumpiness"
+	x = pow(2*t/bounce_period - 1, 2)
+	y = pow(1 + bounce_step/bounce_step0, 1-x) 
+	# x = bounce_step*(1-cos(2*PI*t/bounce_period))
+	return bounce_step0*(y-1)
+	
+func calc_vert_pos(t):
+	var y
+	y = sin(PI*t/move_period)
+	return move_height*y*y
+	
+func calc_vector_forward():
+	var phi = get_rotation()[1]
+	return Vector3(-round(sin(phi)), 0, -round(cos(phi)))
+
+func get_obstacle_id(direction):
+	var from = get_translation()
+	var to = from + direction * ray_len
+	var result = space_state.intersect_ray(from, to)
+	if (not result.empty()):
+    	return result.collider_id
+	else:
+		return -1

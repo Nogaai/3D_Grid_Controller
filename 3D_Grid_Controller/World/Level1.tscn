@@ -1,0 +1,42 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://World/Grid.gd" type="Script" id=1]
+[ext_resource path="res://World/MeshLib/MeshLibTest.meshlib" type="MeshLibrary" id=2]
+[ext_resource path="res://World/Level1.gd" type="Script" id=3]
+[ext_resource path="res://Player/Player.gd" type="Script" id=4]
+
+[sub_resource type="PlaneMesh" id=1]
+size = Vector2( 30, 30 )
+
+[node name="Level1" type="Spatial"]
+script = ExtResource( 3 )
+
+[node name="Ground" type="MeshInstance" parent="."]
+mesh = SubResource( 1 )
+material/0 = null
+
+[node name="Grid" type="GridMap" parent="."]
+mesh_library = ExtResource( 2 )
+cell_size = Vector3( 2, 4, 2 )
+collision_mask = 0
+data = {
+"cells": PoolIntArray( 65531, 1, 1441792, 4, 3, 1441792, 65531, 3, 1075183616, 1, 4, 1441792, 65534, 5, 538312704, 65532, 65532, 1441792, 65533, 65532, 1441792, 0, 65533, 0, 1, 65533, 0, 2, 65533, 1441792, 65531, 65533, 538312704, 65534, 65533, 0, 65535, 65533, 0, 3, 65534, 538312704, 1, 65535, 0, 65532, 65535, 1441792, 65534, 65535, 0, 65535, 65535, 0 )
+}
+script = ExtResource( 1 )
+__meta__ = {
+"_editor_clip_": 0,
+"_editor_floor_": Vector3( 0, 1, 0 )
+}
+
+[node name="Player" type="KinematicBody" parent="Grid"]
+transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1.68317, 5.29886 )
+collision/safe_margin = 0.2
+script = ExtResource( 4 )
+__meta__ = {
+"_edit_group_": true
+}
+walk_speed = 0.3
+
+[node name="Camera" type="Camera" parent="Grid/Player"]
+
+[node name="Tween" type="Tween" parent="Grid/Player"]
